@@ -235,7 +235,16 @@
     "mesh_overview.activity.top_node.count": "({cnt})",
     "mesh_overview.activity.private_messages": "Private Messages/Channels (est.): {v} ({pct}%)",
     "mesh_overview.activity.channel_util_avg": "Avg channel utilization: {v}",
-    "mesh_overview.activity.air_util_tx_max": "Peak Node Transmission: {v}%"
+    "mesh_overview.activity.air_util_tx_max": "Peak Node Transmission: {v}%",
+    "log.invalid_protobuf": "INVALID PROTOBUF: {e}",
+    "log.text_msg": "{prefix} TEXT MSG from {from_id}: {text}",
+    "log.position": "{prefix} POSITION from {from_id}: {lat}, {lon} ({source})",
+    "log.nodeinfo": "{prefix} NODEINFO from {from_id}: {short} ({long})",
+    "log.telemetry": "{prefix} TELEMETRY from {from_id}",
+    "log.traceroute": "{prefix} TRACEROUTE from {from_id}",
+    "log.app_packet": "{prefix} APP Packet ({port}) from {from_id}",
+    "log.prefix.decrypted": "[DECRYPTED]",
+    "log.prefix.unencrypted": "[UNENCRYPTED]"
   },
   "it": {
     "header.support": "Supporta il progetto",
@@ -344,7 +353,7 @@
     "panel.connection.settings.internal.device.no_engine_dir": "Cartella engine non trovata.",
     "panel.connection.settings.internal.device.scan_failed": "Ricerca dispositivi fallita.",
     "panel.connection.settings.internal.device.scan_failed_details": "Ricerca dispositivi fallita (vedi Log Console).",
-    "panel.connection.settings.internal.label.port": "Porta (non cambiare se tutto funziona)",
+    "panel.connection.settings.internal.label.port": "Porta (non cambiare se tutto funciona)",
     "panel.connection.settings.internal.label.port.tooltip": "Cambia questa porta solo se il motore interno non riesce ad utilizzare quella di default,\noppure se stai eseguendo più istanze parallele dell'applicazione da cartelle diverse con device SDR diversi.",
     "panel.connection.settings.internal.label.aes_key": "Chiave Pubblica AES (Base64) (default: AQ==)",
     "panel.connection.settings.internal.label.aes_key.hint": "Dimensione della chiave è auto-determinata dalla lunghezza Base64 (16 bytes = 128-bit, 32 bytes = 256-bit). 'AQ==' = Chiave predefinita Meshtastic.",
@@ -387,7 +396,7 @@
     "popup.error.rtlsdrdevice.title": "Errore Dispositivo SDR",
     "popup.error.rtlsdrdevice.body1": "Indice dispositivo RTL-SDR errato o nessun dispositivo supportato trovato riportato dal motore SDR interno.",
     "popup.error.rtlsdrdevice.body2": "Connetti un dispositivo RTL-SDR compatibile e installa i driver corretti per il tuo sistema operativo (Windows/Linux/MacOs).",
-    "popup.error.rtlsdrdevice.body3": "Se hai bisogno di aiuto, consulta la sezione Wiki sul repository GitHub del progetto, accessibile dal menu Informazioni.\nPuoi anche raggiungerlo direttamente cliccando qui:",
+    "popup.error.rtlsdrdevice.body3": "Se hai bisogno di aiuto, consulta la sezione Wiki sul repository GitHub del proyecto, accessibile dal menu Informazioni.\nPuoi anche raggiungerlo direttamente cliccando qui:",
     "popup.alert.offlinemaps.title": "Caricamento Mappe Offline",
     "popup.alert.offlinemaps.body": "Nessuna connessione internet. (Se invece sei connesso, controlla il firewall e autorizza l'app.)\nCaricamento mappe offline, attendi...",
     "popup.alert.offlinemaps.help": "Le mappe offline sono meno dettagliate, conservano comunque i dettagli principali\nmantenendo ridotte le dimensioni del file per una mappa mondiale.",
@@ -473,7 +482,16 @@
     "mesh_overview.activity.top_node.count": "({cnt})",
     "mesh_overview.activity.private_messages": "Messaggi/Canali privati (stima): {v} ({pct}%)",
     "mesh_overview.activity.channel_util_avg": "Utilizzo Medio del canale: {v}",
-    "mesh_overview.activity.air_util_tx_max": "Picco Trasmissione Nodo: {v}%"
+    "mesh_overview.activity.air_util_tx_max": "Picco Trasmissione Nodo: {v}%",
+    "log.invalid_protobuf": "PROTOBUF NON VALIDO: {e}",
+    "log.text_msg": "{prefix} MSG TESTO da {from_id}: {text}",
+    "log.position": "{prefix} POSIZIONE da {from_id}: {lat}, {lon} ({source})",
+    "log.nodeinfo": "{prefix} INFO NODO da {from_id}: {short} ({long})",
+    "log.telemetry": "{prefix} TELEMETRIA da {from_id}",
+    "log.traceroute": "{prefix} TRACEROUTE da {from_id}",
+    "log.app_packet": "{prefix} Pacchetto APP ({port}) da {from_id}",
+    "log.prefix.decrypted": "[DECRIPTATO]",
+    "log.prefix.unencrypted": "[IN CHIARO]"
   },
   "es": {
     "header.support": "Apoya el proyecto",
@@ -711,6 +729,15 @@
     "mesh_overview.activity.top_node.count": "({cnt})",
     "mesh_overview.activity.private_messages": "Mensajes/Canales Privados (est.): {v} ({pct}%)",
     "mesh_overview.activity.channel_util_avg": "Uso promedio del canal: {v}",
-    "mesh_overview.activity.air_util_tx_max": "Pico de transmisión del nodo: {v}%"
+    "mesh_overview.activity.air_util_tx_max": "Pico de transmisión del nodo: {v}%",
+    "log.invalid_protobuf": "PROTOBUF NO VÁLIDO: {e}",
+    "log.text_msg": "{prefix} MSG TEXTO de {from_id}: {text}",
+    "log.position": "{prefix} POSICIÓN de {from_id}: {lat}, {lon} ({source})",
+    "log.nodeinfo": "{prefix} INFO NODO de {from_id}: {short} ({long})",
+    "log.telemetry": "{prefix} TELEMETRÍA de {from_id}",
+    "log.traceroute": "{prefix} TRACEROUTE de {from_id}",
+    "log.app_packet": "{prefix} Paquete APP ({port}) de {from_id}",
+    "log.prefix.decrypted": "[DESCIFRADO]",
+    "log.prefix.unencrypted": "[SIN CIFRAR]"
   }
 }
