@@ -117,6 +117,8 @@ If adequate **financial and community support** is reached, MeshStation aims to 
 - Supported SDR drivers
 - A system capable of real-time SDR processing
 
+**Are you on Windows 11?** Check out the [Windows 11 Setup Guide](WINDOWS_SETUP.md) for step-by-step instructions on hardware, drivers, and startup.
+
 **Visit the wiki if you're having trouble with drivers or to learn how to "install" the app:** [https://github.com/IronGiu/MeshStation/wiki](https://github.com/IronGiu/MeshStation/wiki)
 
 ---
@@ -229,6 +231,8 @@ Con un adeguato **supporto economico e della community**, MeshStation potrà evo
 - Dispositivo compatibile RTL-SDR
 - Driver SDR supportati
 - Sistema in grado di gestire SDR in tempo reale
+
+**Sei su Windows 11?** Consulta la [Guida all'installazione per Windows 11](WINDOWS_SETUP.md) per istruzioni dettagliate su hardware, driver e avvio.
 
 **Vai nella wiki se hai problemi con driver o per sapere come "installare" l'app:** [https://github.com/IronGiu/MeshStation/wiki](https://github.com/IronGiu/MeshStation/wiki)
 
