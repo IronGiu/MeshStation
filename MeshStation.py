@@ -234,6 +234,33 @@ def _fetch_latest_github_release(timeout_sec: float = 10.0) -> dict | None:
             print(f"Error fetching latest release: {e}")
         return None
 
+# --- MeshCore Constants ---
+MESHCORE_PRESETS = {
+    "USA_CANADA": {
+        "RECOMMENDED": {"freq": 910.525, "sf": 7,  "bw": 62.5, "cr": 5, "sync": 0x12, "preamble": 16, "description": "USA/Canada (Recommended)"},
+        "LEGACY_WIDE": {"freq": 915.8,   "sf": 10, "bw": 250.0, "cr": 5, "sync": 0x12, "preamble": 16, "description": "Legacy 915-region Wide"},
+    },
+}
+
+PAYLOAD_TYPE_REQ         = 0x00
+PAYLOAD_TYPE_RESPONSE    = 0x01
+PAYLOAD_TYPE_TXT_MSG     = 0x02
+PAYLOAD_TYPE_ACK         = 0x03
+PAYLOAD_TYPE_ADVERT      = 0x04
+PAYLOAD_TYPE_GRP_TXT     = 0x05
+PAYLOAD_TYPE_GRP_DATA    = 0x06
+PAYLOAD_TYPE_ANON_REQ    = 0x07
+PAYLOAD_TYPE_PATH        = 0x08
+PAYLOAD_TYPE_TRACE       = 0x09
+PAYLOAD_TYPE_MULTIPART   = 0x0A
+PAYLOAD_TYPE_CONTROL     = 0x0B
+PAYLOAD_TYPE_RAW_CUSTOM  = 0x0F
+
+ROUTE_TYPE_TRANSPORT_FLOOD  = 0x00
+ROUTE_TYPE_FLOOD            = 0x01
+ROUTE_TYPE_DIRECT           = 0x02
+ROUTE_TYPE_TRANSPORT_DIRECT = 0x03
+
 # --- Meshtastic Region Definitions ---
 # Fields: freq_start (MHz), freq_end (MHz), dutycycle, spacing (MHz), power_limit (dBm), wide_lora, name
 MESHTASTIC_REGIONS = {
@@ -924,6 +951,7 @@ def _detect_topo_object_names(topo: dict) -> dict:
 
 class AppState:
     def __init__(self):
+        self.network_mode = "meshtastic" # "meshtastic" | "meshcore"
         self.connect_mode = None  # None | "direct" | "external"
         self.engine_proc = None
         self.last_rx_ts = 0.0
@@ -942,6 +970,16 @@ class AppState:
         self.direct_bias_tee = False
         self.direct_port = "20002"
         self.direct_key_b64 = "AQ=="
+
+        # MeshCore Settings
+        self.meshcore_region = "USA_CANADA"
+        self.meshcore_preset = "RECOMMENDED"
+        self.meshcore_custom_freq = 910.525
+        self.meshcore_custom_sf = 7
+        self.meshcore_custom_bw = 62.5
+        self.meshcore_custom_cr = 5
+        self.meshcore_custom_sync_word = 0x12
+        self.meshcore_custom_preamble_len = 16
 
         self.external_ip = "127.0.0.1"
         self.external_port = "20002"
@@ -2156,6 +2194,138 @@ def update_node(node_id, **kwargs):
         if changed and ('short_name' in kwargs or 'long_name' in kwargs):
             state.chat_force_refresh = True
 
+def resolveMeshCoreIdentity(node_hash):
+    # node_hash is 1 byte int
+    target_hex = f"{node_hash:02x}"
+    for nid, n in state.nodes.items():
+        if nid.startswith(target_hex):
+            return n.get('long_name', nid), nid
+    return f"Node {target_hex}", target_hex
+
+def decodeMeshCore(packet_bytes, snr=None, rssi=None):
+    if not packet_bytes or len(packet_bytes) < 2:
+        return None
+
+    header = packet_bytes[0]
+    # version = (header >> 6) & 0x03
+    payload_type = (header >> 2) & 0x0F
+    route_type = header & 0x03
+
+    offset = 1
+    if route_type in (ROUTE_TYPE_TRANSPORT_FLOOD, ROUTE_TYPE_TRANSPORT_DIRECT):
+        if len(packet_bytes) < offset + 4: return None
+        # transport_codes = packet_bytes[offset:offset+4]
+        offset += 4
+
+    if len(packet_bytes) < offset + 1: return None
+    path_len_byte = packet_bytes[offset]
+    offset += 1
+
+    hop_count = path_len_byte & 0x3F
+    hash_size = ((path_len_byte >> 6) & 0x03) + 1
+
+    path_bytes_len = hop_count * hash_size
+    if len(packet_bytes) < offset + path_bytes_len: return None
+    path_data = packet_bytes[offset:offset+path_bytes_len]
+    offset += path_bytes_len
+
+    payload = packet_bytes[offset:]
+
+    # Process Payloads
+    if payload_type == PAYLOAD_TYPE_ADVERT:
+        if len(payload) < 32 + 4 + 64: return None
+        pubkey = payload[0:32]
+        # timestamp = int.from_bytes(payload[32:36], 'little')
+        # signature = payload[36:100]
+        appdata = payload[100:]
+
+        node_id = pubkey.hex()
+        short_id = node_id[:2]
+
+        name = "Unknown"
+        lat = None
+        lon = None
+        role = "Companion"
+        relay_capable = False
+
+        if len(appdata) > 0:
+            flags = appdata[0]
+            ptr = 1
+            if flags & 0x10: # has location
+                if len(appdata) >= ptr + 8:
+                    lat = int.from_bytes(appdata[ptr:ptr+4], 'little', signed=True) / 1_000_000.0
+                    lon = int.from_bytes(appdata[ptr+4:ptr+8], 'little', signed=True) / 1_000_000.0
+                    ptr += 8
+            if flags & 0x20: ptr += 2 # feature 1
+            if flags & 0x40: ptr += 2 # feature 2
+            if flags & 0x80: # has name
+                name = appdata[ptr:].decode('utf-8', errors='ignore')
+
+            type_bits = flags & 0x07
+            if type_bits == 0x02:
+                role = "Repeater"
+                relay_capable = True
+            elif type_bits == 0x03:
+                role = "Room Server"
+                relay_capable = True
+            elif type_bits == 0x04:
+                role = "Sensor"
+
+        # Store path info if this advert came through repeaters
+        path_list = []
+        if hop_count > 0:
+            for i in range(hop_count):
+                h = path_data[i*hash_size : (i+1)*hash_size]
+                path_list.append(h.hex())
+
+        update_node(node_id, short_name=short_id, long_name=name, hw_model=role, role=role, lat=lat, lon=lon, public_key=node_id)
+        state.nodes[node_id]["relay_capable"] = relay_capable
+        state.nodes[node_id]["last_path"] = path_list
+
+        log_to_console(f"[MESHCORE] ADVERT from {name} ({short_id}) - Role: {role}")
+
+    elif payload_type == PAYLOAD_TYPE_TXT_MSG:
+        if len(payload) >= 4:
+            dest_hash = payload[0]
+            src_hash = payload[1]
+
+            src_name, src_id = resolveMeshCoreIdentity(src_hash)
+            dest_name, dest_id = resolveMeshCoreIdentity(dest_hash)
+
+            now_dt = datetime.now()
+            msg_obj = {
+                "time": now_dt.strftime("%H:%M"),
+                "date": now_dt.strftime("%d/%m/%Y"),
+                "from": src_name,
+                "from_id": src_id,
+                "to": dest_id,
+                "text": "[Encrypted Message]",
+                "is_me": False,
+            }
+            state.messages.append(msg_obj)
+            state.new_messages.append(msg_obj)
+
+            log_to_console(f"[MESHCORE] TXT from {src_id} to {dest_id} ([Encrypted Message])")
+
+    elif payload_type == PAYLOAD_TYPE_GRP_TXT:
+        if len(payload) >= 1:
+            # channel_hash = payload[0]
+            now_dt = datetime.now()
+            msg_obj = {
+                "time": now_dt.strftime("%H:%M"),
+                "date": now_dt.strftime("%d/%m/%Y"),
+                "from": "Group",
+                "from_id": "group",
+                "to": "All",
+                "text": "[Encrypted Group Message]",
+                "is_me": False,
+            }
+            state.messages.append(msg_obj)
+            state.new_messages.append(msg_obj)
+            log_to_console(f"[MESHCORE] GRP_TXT ([Encrypted Group Message])")
+
+    return True
+
 def decodeProtobuf(packetData, sourceID, destID, cryptplainprefix, *, count_invalid: bool = True, preset_name: str | None = None, channel_hash: int | None = None, forced_channel_id: str | None = None, packet_id: bytes | None = None):
     try:
         data = mesh_pb2.Data()
@@ -2519,6 +2689,10 @@ def parse_framed_stream_bytes(rx_buf: bytearray):
                 preset_id_off = flags_off + 5  # flags(1)+snr(2)+rssi(2)
                 frame_preset_id = body[preset_id_off] if len(body) > preset_id_off else 0
                 frame_preset_name = PRESET_ID_MAP.get(frame_preset_id)
+
+                if state.network_mode == "meshcore":
+                    decodeMeshCore(payload, snr=snr_val, rssi=rssi_val)
+                    continue
 
                 # 1) Extract Meshtastic fields
                 extracted = dataExtractor(payload.hex())
@@ -3113,7 +3287,34 @@ def start_engine_direct():
         env["CONDA_PREFIX"] = runtime
         env["PYTHONNOUSERSITE"] = "1"
 
-    region = getattr(state, "direct_region", "EU_868")
+    if state.network_mode == "meshcore":
+        # MeshCore direct engine start
+        cmd = [
+            py, "-m", "meshtastic_engine.run_engine",
+            "--host", "127.0.0.1",
+            "--port", str(state.port),
+            "--center-freq", str(int(round(state.meshcore_custom_freq * 1_000_000))),
+            "--samp-rate", "1000000",
+            "--lora-bw", str(int(round(state.meshcore_custom_bw * 1000))),
+            "--sf", str(int(state.meshcore_custom_sf)),
+            "--gain", str(int(state.direct_gain)),
+            "--ppm", str(int(state.direct_ppm)),
+            "--sync-word", str(int(state.meshcore_custom_sync_word)),
+            "--preamble-len", str(int(state.meshcore_custom_preamble_len)),
+        ]
+
+        raw_device_args = str(getattr(state, "direct_device_args", "") or "").strip()
+        if raw_device_args:
+            cmd.extend(["--device-args", raw_device_args])
+        if getattr(state, 'direct_bias_tee', False):
+            cmd.append("--bias-tee")
+
+        log_to_console(f"[ENGINE][MESHCORE] Radio settings: freq={state.meshcore_custom_freq} MHz, bw={state.meshcore_custom_bw} kHz, sf={state.meshcore_custom_sf}")
+
+        primary_calc = {"center_freq_hz": int(round(state.meshcore_custom_freq * 1_000_000)), "bw_khz": state.meshcore_custom_bw, "sf": state.meshcore_custom_sf}
+        valid_configs = []
+    else:
+        region = getattr(state, "direct_region", "EU_868")
     preset_name = state.direct_preset
     freq_slot = getattr(state, "direct_frequency_slot", 0)
     ch_name = getattr(state, "direct_channel_name", "") or None
@@ -3157,27 +3358,29 @@ def start_engine_direct():
         else:
             valid_configs.append(entry)
 
-    if primary is None:
-        msg = f"No valid preset found for region {region}."
-        log_to_console(f"[ENGINE] {msg}")
-        show_engine_error_dialog(msg)
-        return
+    if state.network_mode != "meshcore":
+        if primary is None:
+            msg = f"No valid preset found for region {region}."
+            log_to_console(f"[ENGINE] {msg}")
+            show_engine_error_dialog(msg)
+            return
 
-    primary_key, primary_preset_id, primary_calc, _ = primary
+        primary_key, primary_preset_id, primary_calc, _ = primary
     log_to_console(f"[ENGINE] Primary: {primary_key} (preset_id={primary_preset_id}), extra chains: {len(valid_configs)}")
 
-    cmd = [
-        py, "-m", "meshtastic_engine.run_engine",
-        "--host", "127.0.0.1",
-        "--port", str(state.port),
-        "--center-freq", str(primary_calc["center_freq_hz"]),
-        "--samp-rate", "1000000",
-        "--lora-bw", str(int(round(primary_calc["bw_khz"] * 1000))),
-        "--sf", str(primary_calc["sf"]),
-        "--gain", str(int(state.direct_gain)),
-        "--ppm", str(int(state.direct_ppm)),
-        "--preset-id", str(primary_preset_id),
-    ]
+    if state.network_mode != "meshcore":
+        cmd = [
+            py, "-m", "meshtastic_engine.run_engine",
+            "--host", "127.0.0.1",
+            "--port", str(state.port),
+            "--center-freq", str(primary_calc["center_freq_hz"]),
+            "--samp-rate", "1000000",
+            "--lora-bw", str(int(round(primary_calc["bw_khz"] * 1000))),
+            "--sf", str(primary_calc["sf"]),
+            "--gain", str(int(state.direct_gain)),
+            "--ppm", str(int(state.direct_ppm)),
+            "--preset-id", str(primary_preset_id),
+        ]
     if valid_configs:
         import json as _json
         cmd.extend(["--extra-demod-configs", _json.dumps(valid_configs)])
@@ -3936,6 +4139,32 @@ def main_page():
                     } catch (e) { }
                 } catch (e) { }
             }
+            window.meshEnsurePathLayer = (map) => {
+                if (!window.L || !map) return;
+                if (map._meshPathLayer) return;
+                map._meshPathLayer = window.L.layerGroup().addTo(map);
+            };
+
+            window.meshDrawPaths = (mapElementId, paths) => {
+                try {
+                    const el = (typeof getElement === 'function') ? getElement(mapElementId) : null;
+                    const map = el && el.map;
+                    if (!window.L || !map) return;
+                    window.meshEnsurePathLayer(map);
+                    map._meshPathLayer.clearLayers();
+
+                    paths.forEach(p => {
+                        if (!p.coords || p.coords.length < 2) return;
+                        window.L.polyline(p.coords, {
+                            color: '#3b82f6',
+                            weight: 2,
+                            opacity: 0.6,
+                            dashArray: '5, 10'
+                        }).addTo(map._meshPathLayer);
+                    });
+                } catch (e) { }
+            };
+
             window.meshApplyThemeToMapWhenReady = (tries) => {
                 let remaining = Number.isFinite(Number(tries)) ? Number(tries) : 40;
                 const tick = () => {
@@ -4223,11 +4452,13 @@ def main_page():
             } catch (e) { }
         };
 
-        window.meshMarkerHtml = (label, cls, hopCls) => {
+        window.meshMarkerHtml = (label, cls, hopCls, roleCls, relayCls) => {
             const text = window.meshEscapeHtml(label ?? '');
             const c = window.meshEscapeHtml(cls ?? '');
             const h = window.meshEscapeHtml(hopCls ?? 'mesh-node-unknown');
-            return '<div class="mesh-node-marker ' + c + ' ' + h + '"><div class="mesh-node-text">' + text + '</div></div>';
+            const r = window.meshEscapeHtml(roleCls ?? '');
+            const rl = window.meshEscapeHtml(relayCls ?? '');
+            return '<div class="mesh-node-marker ' + c + ' ' + h + ' ' + r + ' ' + rl + '"><div class="mesh-node-text">' + text + '</div></div>';
         };
 
         window.meshGetNodeMarkerDims = (map) => {
@@ -4446,7 +4677,15 @@ def main_page():
 
                     const hops = n.hops;
                     const hopCls = (hops === 0) ? 'mesh-node-direct' : (hops === null || hops === undefined) ? 'mesh-node-unknown' : 'mesh-node-indirect';
-                    const html = window.meshMarkerHtml(label, cls, hopCls);
+
+                    let roleCls = '';
+                    if (n.role === 'Repeater') roleCls = 'mesh-node-repeater';
+                    else if (n.role === 'Room Server') roleCls = 'mesh-node-room-server';
+                    else if (n.role === 'Companion') roleCls = 'mesh-node-companion';
+
+                    const relayCls = n.relay_capable ? 'mesh-node-relay-capable' : '';
+
+                    const html = window.meshMarkerHtml(label, cls, hopCls, roleCls, relayCls);
                     const icon = window.L.divIcon({
                         className: 'mesh-node-divicon',
                         html: html,
@@ -4662,6 +4901,13 @@ def main_page():
             .mesh-node-direct   { border: 3px solid #00f5ff !important; box-shadow: 0 0 0 2px rgba(0,245,255,0.30), 0 0 10px 2px rgba(0,245,255,0.22), 0 8px 18px rgba(0,0,0,0.28); }
             .mesh-node-indirect { border: 1px solid rgba(116,116,116,0.92) !important; }
             .mesh-node-unknown  { border: 1.5px dashed rgba(200,200,200,0.72) !important; }
+
+            /* MeshCore Marker Shapes */
+            .mesh-node-companion { border-radius: 999px; }
+            .mesh-node-repeater { border-radius: 0; clip-path: polygon(50% 0%, 0% 100%, 100% 100%); width: 40px !important; height: 40px !important; }
+            .mesh-node-room-server { border-radius: 4px; width: 38px !important; height: 38px !important; }
+
+            .mesh-node-relay-capable { border: 4px double #ffffff !important; }
 
             .mesh-node-marker.mesh-pulse::after {
                 content: '';
@@ -5275,12 +5521,88 @@ def main_page():
             with ui.scroll_area().style('height: 100%;'):
                 with ui.column().classes('w-full'):
                     ui.label(translate("panel.connection.settings.title", "Connection Settings")).classes('text-lg font-bold mb-2')
+
+                    with ui.row().classes('w-full items-center mb-2'):
+                        ui.label("Network Ecosystem:").classes('mr-2 font-bold')
+                        network_mode_toggle = ui.toggle(
+                            {"meshtastic": "Meshtastic", "meshcore": "MeshCore"},
+                            value=state.network_mode,
+                            on_change=lambda e: setattr(state, 'network_mode', e.value) or save_user_config() or connection_dialog.update()
+                        ).props('dense rounded unelevated color=blue')
+
                     with ui.tabs().classes('w-full mb-2') as tabs:
                         tab_direct = ui.tab(translate("panel.connection.settings.internaltab", "Internal"))
                         tab_ext = ui.tab(translate("panel.connection.settings.externaltab", "External"))
 
                     with ui.tab_panels(tabs, value=tab_direct).classes('w-full'):
                         with ui.tab_panel(tab_direct):
+                          if state.network_mode == "meshcore":
+                            ui.label("MeshCore SDR Engine").classes('font-bold mb-0')
+                            ui.markdown("Configure MeshCore radio parameters for the internal engine.").classes('text-sm text-gray-600')
+
+                            # MeshCore Region/Preset select
+                            mc_region_options = {k: k.replace("_", "/") for k in MESHCORE_PRESETS.keys()}
+                            mc_region_options["CUSTOM"] = "Custom"
+
+                            def _on_mc_region_change(e):
+                                state.meshcore_region = e.value
+                                if e.value != "CUSTOM":
+                                    first_preset = list(MESHCORE_PRESETS[e.value].keys())[0]
+                                    state.meshcore_preset = first_preset
+                                    # Sync custom fields with preset
+                                    p = MESHCORE_PRESETS[e.value][first_preset]
+                                    state.meshcore_custom_freq = p["freq"]
+                                    state.meshcore_custom_sf = p["sf"]
+                                    state.meshcore_custom_bw = p["bw"]
+                                    state.meshcore_custom_cr = p["cr"]
+                                    state.meshcore_custom_sync_word = p["sync"]
+                                    state.meshcore_custom_preamble_len = p["preamble"]
+                                save_user_config()
+                                connection_dialog.update()
+
+                            ui.select(
+                                options=mc_region_options,
+                                value=state.meshcore_region,
+                                on_change=_on_mc_region_change,
+                                label="Region"
+                            ).props('dense').classes('w-full mb-1')
+
+                            if state.meshcore_region != "CUSTOM":
+                                mc_preset_options = {k: v["description"] for k, v in MESHCORE_PRESETS[state.meshcore_region].items()}
+
+                                def _on_mc_preset_change(e):
+                                    state.meshcore_preset = e.value
+                                    p = MESHCORE_PRESETS[state.meshcore_region][e.value]
+                                    state.meshcore_custom_freq = p["freq"]
+                                    state.meshcore_custom_sf = p["sf"]
+                                    state.meshcore_custom_bw = p["bw"]
+                                    state.meshcore_custom_cr = p["cr"]
+                                    state.meshcore_custom_sync_word = p["sync"]
+                                    state.meshcore_custom_preamble_len = p["preamble"]
+                                    save_user_config()
+                                    connection_dialog.update()
+
+                                ui.select(
+                                    options=mc_preset_options,
+                                    value=state.meshcore_preset,
+                                    on_change=_on_mc_preset_change,
+                                    label="Preset"
+                                ).props('dense').classes('w-full mb-1')
+
+                            with ui.row().classes('w-full gap-2'):
+                                ui.number("Freq (MHz)", value=state.meshcore_custom_freq, format="%.3f", on_change=lambda e: setattr(state, 'meshcore_custom_freq', e.value) or save_user_config()).props('dense').classes('flex-1')
+                                ui.number("SF", value=state.meshcore_custom_sf, precision=0, on_change=lambda e: setattr(state, 'meshcore_custom_sf', e.value) or save_user_config()).props('dense').classes('w-16')
+
+                            with ui.row().classes('w-full gap-2'):
+                                ui.number("BW (kHz)", value=state.meshcore_custom_bw, format="%.1f", on_change=lambda e: setattr(state, 'meshcore_custom_bw', e.value) or save_user_config()).props('dense').classes('flex-1')
+                                ui.number("CR", value=state.meshcore_custom_cr, precision=0, on_change=lambda e: setattr(state, 'meshcore_custom_cr', e.value) or save_user_config()).props('dense').classes('w-16')
+
+                            mc_advanced = ui.checkbox("Advanced LoRa Settings").props('dense').classes('text-xs mt-1')
+                            with ui.row().classes('w-full gap-2').bind_visibility_from(mc_advanced, 'value'):
+                                ui.number("Sync Word (hex)", value=state.meshcore_custom_sync_word, format="0x%02X", on_change=lambda e: setattr(state, 'meshcore_custom_sync_word', int(e.value)) or save_user_config()).props('dense').classes('flex-1')
+                                ui.number("Preamble", value=state.meshcore_custom_preamble_len, precision=0, on_change=lambda e: setattr(state, 'meshcore_custom_preamble_len', e.value) or save_user_config()).props('dense').classes('w-20')
+
+                          else:
                             ui.label(translate("panel.connection.settings.internal.title", "Internal SDR Engine")).classes('font-bold mb-0')
                             ui.markdown(translate("panel.connection.settings.internal.help", 'The app manages the internal SDR engine for you.<br> Just select Region, Channel, PPM for your device and a suitable RF Gain.')).classes('text-sm text-gray-600')
                             _saved_device_args = str(getattr(state, "direct_device_args", "rtl=0") or "").strip()
@@ -6365,7 +6687,7 @@ def main_page():
 
                         tile_internet = has_tile_internet()
                         ui.run_javascript(
-                            f"window.mesh_main_map_id = {json.dumps(m.id)}; window.mesh_tile_internet = {json.dumps(tile_internet)};"
+                            f"window.mesh_main_map_id = {json.dumps(m.id)}; window.mesh_tile_internet = {json.dumps(tile_internet)}; window.mesh_network_mode = {json.dumps(state.network_mode)};"
                         )
                         ui.run_javascript("""
                         (function() {
@@ -6914,12 +7236,26 @@ def main_page():
                                             popup_content = f"<div style='cursor:pointer' onclick='window.goToNode(\"{nid}\")'>"
                                             popup_content += f"<b style='font-size:16px; margin-bottom: 8px; display: block;'>{name_display}</b>"
 
-                                            if short_display:
-                                                popup_content += f"<i class='material-icons' style='font-size:16px; vertical-align:text-bottom;'>label</i> Short Name: {short_display}<br>"
+                                            if state.network_mode == "meshcore":
+                                                popup_content += f"<i class='material-icons' style='font-size:16px; vertical-align:text-bottom;'>fingerprint</i> Public key: <span style='font-family:monospace; font-size:10px; word-break:break-all;'>{nid}</span><br>"
+                                                popup_content += f"<i class='material-icons' style='font-size:16px; vertical-align:text-bottom;'>label</i> Short ID: {n['short_name']}<br>"
+                                                popup_content += f"<i class='material-icons' style='font-size:16px; vertical-align:text-bottom;'>category</i> Type: {n['role']}<br>"
+                                                popup_content += f"<i class='material-icons' style='font-size:16px; vertical-align:text-bottom;'>history</i> Freshness: {n['last_seen']}<br>"
 
-                                            popup_content += f"<i class='material-icons' style='font-size:16px; vertical-align:text-bottom;'>fingerprint</i> ID: {nid}</div>"
-                                            popup_content += f"<i class='material-icons' style='font-size:16px; vertical-align:text-bottom;'>memory</i> {translate('ui.model', 'Model')}: {n['hw_model']}<br>"
-                                            popup_content += f"<i class='material-icons' style='font-size:16px; vertical-align:text-bottom;'>admin_panel_settings</i> {translate('ui.role', 'Role')}: {n['role']}<br>"
+                                                # Radio Params for MeshCore
+                                                popup_content += "<div style='margin-top:4px; padding-top:4px; border-top:1px solid #ddd;'>"
+                                                popup_content += "<b>Radio parameters:</b><br>"
+                                                popup_content += f"Frequency: {state.meshcore_custom_freq}MHz<br>"
+                                                popup_content += f"Bandwidth: {state.meshcore_custom_bw}kHz<br>"
+                                                popup_content += f"Coding rate: {state.meshcore_custom_cr}<br>"
+                                                popup_content += f"Spreading factor: {state.meshcore_custom_sf}</div>"
+                                            else:
+                                                if short_display:
+                                                    popup_content += f"<i class='material-icons' style='font-size:16px; vertical-align:text-bottom;'>label</i> Short Name: {short_display}<br>"
+
+                                                popup_content += f"<i class='material-icons' style='font-size:16px; vertical-align:text-bottom;'>fingerprint</i> ID: {nid}</div>"
+                                                popup_content += f"<i class='material-icons' style='font-size:16px; vertical-align:text-bottom;'>memory</i> {translate('ui.model', 'Model')}: {n['hw_model']}<br>"
+                                                popup_content += f"<i class='material-icons' style='font-size:16px; vertical-align:text-bottom;'>admin_panel_settings</i> {translate('ui.role', 'Role')}: {n['role']}<br>"
 
                                             if n.get('temperature') is not None:
                                                 popup_content += f"<i class='material-icons' style='font-size:16px; vertical-align:text-bottom;'>thermostat</i> {n['temperature']:.1f}°C<br>"
@@ -7010,6 +7346,8 @@ def main_page():
                                             "marker_label": label.upper(),
                                             "popup": popup_content,
                                             "hops": n.get("hops"),
+                                            "role": n.get("role"),
+                                            "relay_capable": n.get("relay_capable", False),
                                         })
 
                                 if nodes_payload:
@@ -7019,6 +7357,35 @@ def main_page():
                                             % (json.dumps(m.id), json.dumps(nodes_payload, ensure_ascii=False, default=str))
                                         )
                                     map_markers_ready['value'] = True
+
+                                # MeshCore Path Drawing
+                                if state.network_mode == "meshcore":
+                                    paths_payload = []
+                                    for nid, n in list(state.nodes.items()):
+                                        last_path = n.get("last_path")
+                                        if last_path and n.get("lat") and n.get("lon"):
+                                            coords = [[float(n["lat"]), float(n["lon"])]]
+                                            # Trace path through repeaters
+                                            for hop_hash in last_path:
+                                                # Try to find repeater by hash
+                                                found_rep = False
+                                                for rnid, rn in state.nodes.items():
+                                                    if rnid.startswith(hop_hash) and rn.get("lat") and rn.get("lon"):
+                                                        coords.append([float(rn["lat"]), float(rn["lon"])])
+                                                        found_rep = True
+                                                        break
+                                                if not found_rep:
+                                                    # If repeater location is unknown, we stop drawing this path
+                                                    break
+                                            if len(coords) > 1:
+                                                paths_payload.append({"coords": coords})
+
+                                    if paths_payload:
+                                        with m:
+                                            await ui.run_javascript(
+                                                "try { window.meshDrawPaths(%s, %s); } catch (e) {}"
+                                                % (json.dumps(m.id), json.dumps(paths_payload))
+                                            )
 
                                 state.nodes_updated = False
 
@@ -7081,6 +7448,7 @@ def main_page():
                                 {'headerName': 'Unmessagable', 'field': 'is_unmessagable', 'width': 120, ':valueFormatter': '(p) => (p.value === true ? \"true\" : \"false\")'},
                                 {'headerName': 'Model', 'field': 'hw_model', 'width': 160, 'minWidth': 160, ':cellRenderer': 'window.meshCopyCellRenderer'},
                                 {'headerName': 'Role', 'field': 'role', 'width': 140, 'minWidth': 140, ':cellRenderer': 'window.meshCopyCellRenderer'},
+                                {'headerName': 'Relay Capable', 'field': 'relay_capable', 'width': 130, ':valueFormatter': '(p) => (p.value === true ? \"true\" : \"false\")'},
                                 {
                                     'headerName': 'Hops',
                                     'field': 'hops',
