@@ -34,6 +34,9 @@ def main(argv=None) -> int:
     ap.add_argument("--preset-id", type=int, default=0, help="Preset ID byte embedded in each frame (0=unset)")
     ap.add_argument("--extra-demod-configs", default=None, help="JSON list of extra demod chains, e.g. '[{\"sf\":9,\"bw\":250000,...}]'")
 
+    ap.add_argument("--sync-word", type=int, default=None, help="Override LoRa sync word")
+    ap.add_argument("--preamble-len", type=int, default=None, help="Override LoRa preamble length")
+
     args = ap.parse_args(argv)
 
     q = queue.Queue(maxsize=4000)
@@ -60,6 +63,8 @@ def main(argv=None) -> int:
         device_args=args.device_args,
         bias_tee=args.bias_tee,
         extra_demod_configs=extra_demod_configs,
+        sync_word=args.sync_word,
+        preamble_len=args.preamble_len,
     )
 
     # Optional: tweak aggregator timings from CLI
