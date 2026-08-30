@@ -1,3 +1,4 @@
-Be the first to support this project!
+Capt. TeeJay
+Supporter
 
 Donate at: https://ko-fi.com/irongiu
