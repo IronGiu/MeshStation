@@ -1,6 +1,6 @@
 <p align="center">
   <h1 align="center">📡 MeshStation 📡</h1>
-  <p align="center"><i>Meshtastic SDR Analyzer & Desktop GUI</i></p>
+  <p align="center"><i>Meshtastic & MeshCore SDR Analyzer & Desktop GUI</i></p>
   <br>
   <p align="center">
     <a href="https://ko-fi.com/IronGiu"><img src="https://img.shields.io/badge/Ko--fi-FF5E5B?logo=ko-fi&logoColor=white&label=Donate" alt="Ko-fi"></a>&nbsp;
@@ -29,12 +29,12 @@
 
 ## 🇬🇧 English
 
-**MeshStation** is an open‑source Meshtastic SDR Analyzer and Desktop GUI.
-It decodes Meshtastic packets using any SDR, displays nodes on a map,
+**MeshStation** is an open‑source Meshtastic and MeshCore SDR Analyzer and Desktop GUI.
+It decodes Meshtastic and MeshCore packets using any SDR, displays nodes on a map,
 shows chat messages, node database/list, mesh network overview and quality, raw console data, and will support TX in the future.
 
-In fact this is a real-time Meshtastic network observatory powered by **Software Defined Radio (SDR)**.  
-It passively listens to the RF spectrum and decodes live Meshtastic traffic directly from the air — **no Meshtastic device required**.
+In fact this is a real-time mesh network observatory powered by **Software Defined Radio (SDR)**.
+It passively listens to the RF spectrum and decodes live Meshtastic or MeshCore traffic directly from the air — **no mesh device required**.
 
 This project is designed for **network discovery, coverage analysis, network density, network quality, research, and real-world mapping of Meshtastic nodes**, using only a simple RTL-SDR receiver.
 
@@ -60,6 +60,12 @@ This enables use cases that are currently hard or impossible with standard Mesht
 - Monitor network quality and performance
 - **Scan all modem presets at once (LongFast, MediumFast etc.)**
 - **Scan all the MeshTastic frequencies in the world**
+
+#### 🕸️ MeshCore Ecosystem Support
+- **Repeaters & Companions**: Full visualization of MeshCore's structured, repeater-centric hierarchy.
+- **Role-based Markers**: Instant visual identification of Repeaters (Triangle), Companions (Circle), and Room Servers (Square).
+- **Multi-hop Pathing**: Real-time dashed-line visualization of the repeater chain a packet traveled through.
+- **Regional Presets**: One-click configuration for USA/Canada (910.525 MHz) and Legacy Wide (915.8 MHz) deployments.
 
 #### 🧠 Network Mapping & Research
 - Map the **real Meshtastic network as it actually exists**
@@ -111,6 +117,8 @@ If adequate **financial and community support** is reached, MeshStation aims to 
 - Supported SDR drivers
 - A system capable of real-time SDR processing
 
+**Are you on Windows 11?** Check out the [Windows 11 Setup Guide](WINDOWS_SETUP.md) for step-by-step instructions on hardware, drivers, and startup.
+
 **Visit the wiki if you're having trouble with drivers or to learn how to "install" the app:** [https://github.com/IronGiu/MeshStation/wiki](https://github.com/IronGiu/MeshStation/wiki)
 
 ---
@@ -137,12 +145,12 @@ If you find this project useful or exciting:
 
 ## 🇮🇹 Italiano
 
-**MeshStation** è un analizzatore SDR Meshtastic open source e un'interfaccia grafica desktop.
-Decodifica i pacchetti Meshtastic utilizzando qualsiasi SDR, visualizza i nodi su una mappa,
+**MeshStation** è un analizzatore SDR Meshtastic e MeshCore open source e un'interfaccia grafica desktop.
+Decodifica i pacchetti Meshtastic e MeshCore utilizzando qualsiasi SDR, visualizza i nodi su una mappa,
 mostra messaggi di chat, database/lista nodi, Panoramica rete mesh e qualità, dati grezzi della console e supporterà la trasmissione in futuro.
 
-Infatti questo è un osservatorio della rete Meshtastic in tempo reale basato su **Software Defined Radio (SDR)**.  
-Ascolta passivamente lo spettro RF e decodifica il traffico Meshtastic **direttamente dall’etere**, senza bisogno di alcun dispositivo Meshtastic.
+Infatti questo è un osservatorio della rete mesh in tempo reale basato su **Software Defined Radio (SDR)**.
+Ascolta passivamente lo spettro RF e decodifica il traffico Meshtastic o MeshCore **direttamente dall’etere**, senza bisogno di alcun dispositivo mesh.
 
 Il progetto è pensato per **scoperta della rete, analisi di copertura, traffico della rete, qualità della rete, studio e mappatura reale dei nodi Meshtastic**, utilizzando solo un semplice ricevitore RTL-SDR.
 
@@ -168,6 +176,12 @@ Questo permette casi d’uso difficili o impossibili con le configurazioni Mesht
 - Monitorare la qualità e le performance della rete
 - **Scansionare contemporaneamente tutti i modem-preset (LongFast, MediumFast ecc)**
 - **Scansionare tutte le frequenze MeshTastic del mondo**
+
+#### 🕸️ Supporto per l'Ecosistema MeshCore
+- **Ripetitori e Companion**: Visualizzazione completa della gerarchia strutturata e incentrata sui ripetitori di MeshCore.
+- **Marcatori basati sui ruoli**: Identificazione visiva istantanea di Ripetitori (Triangolo), Companion (Cerchio) e Server di Stanza (Quadrato).
+- **Percorsi Multi-hop**: Visualizzazione in tempo reale (linea tratteggiata) della catena di ripetitori attraversata da un pacchetto.
+- **Preset Regionali**: Configurazione con un clic per i paesi USA/Canada (910.525 MHz) e Legacy Wide (915.8 MHz).
 
 #### 🧠 Mappatura & Studio della Rete
 - Mappare la **rete Meshtastic reale**, così com’è davvero
@@ -217,6 +231,8 @@ Con un adeguato **supporto economico e della community**, MeshStation potrà evo
 - Dispositivo compatibile RTL-SDR
 - Driver SDR supportati
 - Sistema in grado di gestire SDR in tempo reale
+
+**Sei su Windows 11?** Consulta la [Guida all'installazione per Windows 11](WINDOWS_SETUP.md) per istruzioni dettagliate su hardware, driver e avvio.
 
 **Vai nella wiki se hai problemi con driver o per sapere come "installare" l'app:** [https://github.com/IronGiu/MeshStation/wiki](https://github.com/IronGiu/MeshStation/wiki)
 

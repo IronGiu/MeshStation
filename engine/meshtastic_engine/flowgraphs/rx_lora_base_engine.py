@@ -51,7 +51,8 @@ class rx_lora_base_engine(gr.top_block):
         payload_length=237,
         impl_head=False,
         has_crc=True,
-        sync_word=(0, 0),
+        sync_word=None,
+        preamble_len=None,
         device_args="",
         bias_tee=False,
         extra_demod_configs=None,
@@ -99,7 +100,20 @@ class rx_lora_base_engine(gr.top_block):
         samp_rate = int(samp_rate)
         self.samp_rate = samp_rate
         lora_bw = int(lora_bw)
+
+        # Sync word processing: MeshCore often uses 0x12 (18)
+        if sync_word is None:
+            sync_word = [0, 0] # default for meshtastic
+        elif isinstance(sync_word, int):
+            sync_word = [0x10, sync_word] # gr-lora style
+
         sync_word = [int(x) for x in sync_word]
+
+        if preamble_len is None:
+            preamble_length = 17 # default for meshtastic
+        else:
+            preamble_length = int(preamble_len)
+
         dc_shift = 0
         dc_iq_mode = 0
         # Pre-detect from args (may be "unknown" if args is empty = auto mode)
@@ -337,6 +351,15 @@ class rx_lora_base_engine(gr.top_block):
         chain_bw    = int(cfg['bw'])
         chain_freq  = int(cfg['center_freq'])
         chain_preset_id = int(cfg.get('preset_id', 0))
+        chain_sync_word = cfg.get('sync_word')
+        if chain_sync_word is None:
+            chain_sync_word = self.sync_word
+        elif isinstance(chain_sync_word, int):
+            chain_sync_word = [0x10, chain_sync_word]
+
+        chain_preamble_len = cfg.get('preamble_len')
+        if chain_preamble_len is None:
+            chain_preamble_len = self.preamble_length
 
         # BW-specific bandpass filter taps
         chain_taps = firdes.complex_band_pass(
@@ -349,7 +372,7 @@ class rx_lora_base_engine(gr.top_block):
         xlat = filter.freq_xlating_fir_filter_ccc(decimation, chain_taps, chain_freq - self.center_freq, self.samp_rate)
         xlat.set_min_output_buffer(17000)
 
-        frame_sync   = lora_sdr_extra.frame_sync(chain_freq, chain_bw, chain_sf, self.impl_head, list(self.sync_word), 4, 17)
+        frame_sync   = lora_sdr_extra.frame_sync(chain_freq, chain_bw, chain_sf, self.impl_head, list(chain_sync_word), 4, chain_preamble_len)
         fft_demod    = lora_sdr_extra.fft_demod(self.soft_decoding, True)
         gray_map     = lora_sdr_extra.gray_mapping(self.soft_decoding)
         deinterleave = lora_sdr_extra.deinterleaver(self.soft_decoding)
