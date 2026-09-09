@@ -2858,6 +2858,13 @@ def _engine_paths():
     if system == "Windows":
         runtime = os.path.join(engine_dir, engine_os_root, "win_x86_64", "runtime")
         py = os.path.join(runtime, "python.exe")
+        if DEBUGGING:
+            print(f"DEBUG: roots={roots}")
+            print(f"DEBUG: engine_dir={engine_dir}")
+            print(f"DEBUG: runtime={runtime}")
+            print(f"DEBUG: py={py}")
+            print(f"DEBUG: runtime exists={os.path.isdir(runtime)}")
+            print(f"DEBUG: py exists={os.path.isfile(py)}")
         return engine_dir, runtime, py, system
 
     if system == "Darwin":
