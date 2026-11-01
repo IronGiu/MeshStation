@@ -241,6 +241,7 @@ MESHTASTIC_REGIONS = {
     "US":           {"freq_start": 902.0,   "freq_end": 928.0,   "dutycycle": 100.0, "spacing": 0.0, "power_limit": 30, "wide_lora": False, "description": "United States"},
     "EU_433":       {"freq_start": 433.0,   "freq_end": 434.0,   "dutycycle": 10.0,  "spacing": 0.0, "power_limit": 10, "wide_lora": False, "description": "EU 433MHz"},
     "EU_868":       {"freq_start": 869.4,   "freq_end": 869.65,  "dutycycle": 10.0,  "spacing": 0.0, "power_limit": 27, "wide_lora": False, "description": "EU 868MHz"},
+    "EU_N_868":     {"freq_start": 869.4,   "freq_end": 869.65,  "dutycycle": 10.0,  "spacing": 0.0, "power_limit": 27, "wide_lora": False, "description": "EU Narrow 868MHz"},
     "CN":           {"freq_start": 470.0,   "freq_end": 510.0,   "dutycycle": 100.0, "spacing": 0.0, "power_limit": 19, "wide_lora": False, "description": "China"},
     "JP":           {"freq_start": 920.5,   "freq_end": 923.5,   "dutycycle": 100.0, "spacing": 0.0, "power_limit": 13, "wide_lora": False, "description": "Japan"},
     "ANZ":          {"freq_start": 915.0,   "freq_end": 928.0,   "dutycycle": 100.0, "spacing": 0.0, "power_limit": 30, "wide_lora": False, "description": "Australia & NZ"},
@@ -278,6 +279,13 @@ MESHTASTIC_MODEM_PRESETS = {
     "LONG_TURBO":      {"channel_name": "LongTurbo",   "bw_narrow": 500.0,  "bw_wide": 1625.0,"sf": 11, "cr": 8, "description": "Long Range, Turbo"},
     "LONG_MODERATE":   {"channel_name": "LongMod",     "bw_narrow": 125.0,  "bw_wide": 406.25,"sf": 11, "cr": 8, "description": "Long Range, Moderate"},
     "VERY_LONG_SLOW":  {"channel_name": "VLongSlow",   "bw_narrow": 62.5,   "bw_wide": 250.0, "sf": 12, "cr": 8, "description": "Very Long Range, Very Slow"},
+    "EDGE_FAST_LOW":   {"channel_name": "EdgeFastLow", "bw_narrow": 62.5,   "bw_wide": 250.0, "sf": 8,  "cr": 8, "description": "Edge Fast Low"},
+    "LITE_FAST":       {"channel_name": "LiteFast",    "bw_narrow": 125.0,  "bw_wide": 125.0, "sf": 9,  "cr": 5, "description": "Lite Fast"},
+    "LITE_SLOW":       {"channel_name": "LiteSlow",    "bw_narrow": 125.0,  "bw_wide": 125.0, "sf": 10, "cr": 5, "description": "Lite Slow"},
+    "NARROW_FAST":     {"channel_name": "NarrowFast",  "bw_narrow": 62.5,   "bw_wide": 62.5,  "sf": 7,  "cr": 6, "description": "Narrow Fast"},
+    "NARROW_SLOW":     {"channel_name": "NarrowSlow",  "bw_narrow": 62.5,   "bw_wide": 62.5,  "sf": 8,  "cr": 6, "description": "Narrow Slow"},
+    "TINY_FAST":       {"channel_name": "TinyFast",    "bw_narrow": 15.6,   "bw_wide": 15.6,  "sf": 7,  "cr": 5, "description": "Tiny Fast"},
+    "TINY_SLOW":       {"channel_name": "TinySlow",    "bw_narrow": 15.6,   "bw_wide": 15.6,  "sf": 8,  "cr": 6, "description": "Tiny Slow"}
 }
 PRESET_ID_MAP = {
     0:  None,          # unknown / single-preset mode
@@ -291,6 +299,13 @@ PRESET_ID_MAP = {
     8:  "LONG_TURBO",
     9:  "LONG_MODERATE",
     10: "VERY_LONG_SLOW",
+    11: "EDGE_FAST_LOW",
+    12: "LITE_FAST",
+    13: "LITE_SLOW",
+    14: "NARROW_FAST",
+    15: "NARROW_SLOW",
+    16: "TINY_FAST",
+    17: "TINY_SLOW",
 }
 PRESET_ID_REVERSE = {v: k for k, v in PRESET_ID_MAP.items() if v is not None}
 PRESET_COLORS = {
@@ -304,6 +319,13 @@ PRESET_COLORS = {
     "LONG_TURBO":     "#06b6d4",  # cyan
     "LONG_MODERATE":  "#84cc16",  # lime
     "VERY_LONG_SLOW": "#64748b",  # slate
+    "EDGE_FAST_LOW":  "#14b8a6",
+    "LITE_FAST":      "#be123c",
+    "LITE_SLOW":      "#f472b6",
+    "NARROW_FAST":    "#facc15",
+    "NARROW_SLOW":    "#0ea5e9",
+    "TINY_FAST":      "#8b5cf6",
+    "TINY_SLOW":      "#a3e635",
 }
 
 def show_fatal_error(title: str, message: str):
@@ -4065,13 +4087,17 @@ def main_page():
                 'LONG_FAST':'#22c55e','MEDIUM_FAST':'#3b82f6','LONG_SLOW':'#a855f7',
                 'MEDIUM_SLOW':'#f59e0b','SHORT_FAST':'#ef4444','SHORT_SLOW':'#f97316',
                 'SHORT_TURBO':'#ec4899','LONG_TURBO':'#06b6d4','LONG_MODERATE':'#84cc16',
-                'VERY_LONG_SLOW':'#64748b'
+                'VERY_LONG_SLOW':'#64748b','EDGE_FAST_LOW':'#14b8a6','LITE_FAST':'#be123c',
+                'LITE_SLOW':'#f472b6','NARROW_FAST':'#facc15','NARROW_SLOW':'#0ea5e9',
+                'TINY_FAST':'#8b5cf6','TINY_SLOW':'#a3e635'
             };
             const shortNames = {
                 'LONG_FAST':'LongFast','MEDIUM_FAST':'MedFast','LONG_SLOW':'LongSlow',
                 'MEDIUM_SLOW':'MedSlow','SHORT_FAST':'ShortFast','SHORT_SLOW':'ShortSlow',
                 'SHORT_TURBO':'ShrtTurbo','LONG_TURBO':'LngTurbo','LONG_MODERATE':'LngMod',
-                'VERY_LONG_SLOW':'VLongSlow'
+                'VERY_LONG_SLOW':'VLongSlow','EDGE_FAST_LOW':'EdgeFast','LITE_FAST':'LiteFast',
+                'LITE_SLOW':'LiteSlow','NARROW_FAST':'NarrowFast','NARROW_SLOW':'NarrowSlow',
+                'TINY_FAST':'TinyFast','TINY_SLOW':'TinySlow'
             };
             const col = colors[val] || '#64748b';
             const label = shortNames[val] || val;
@@ -7883,13 +7909,17 @@ def main_page():
                                 'LONG_FAST':'#22c55e','MEDIUM_FAST':'#3b82f6','LONG_SLOW':'#a855f7',
                                 'MEDIUM_SLOW':'#f59e0b','SHORT_FAST':'#ef4444','SHORT_SLOW':'#f97316',
                                 'SHORT_TURBO':'#ec4899','LONG_TURBO':'#06b6d4','LONG_MODERATE':'#84cc16',
-                                'VERY_LONG_SLOW':'#64748b'
+                                'VERY_LONG_SLOW':'#64748b','EDGE_FAST_LOW':'#14b8a6','LITE_FAST':'#be123c',
+                                'LITE_SLOW':'#f472b6','NARROW_FAST':'#facc15','NARROW_SLOW':'#0ea5e9',
+                                'TINY_FAST':'#8b5cf6','TINY_SLOW':'#a3e635'
                             }
                             short_names = {
                                 'LONG_FAST':'LongFast','MEDIUM_FAST':'MedFast','LONG_SLOW':'LongSlow',
                                 'MEDIUM_SLOW':'MedSlow','SHORT_FAST':'ShortFast','SHORT_SLOW':'ShortSlow',
                                 'SHORT_TURBO':'ShrtTurbo','LONG_TURBO':'LngTurbo','LONG_MODERATE':'LngMod',
-                                'VERY_LONG_SLOW':'VLongSlow'
+                                'VERY_LONG_SLOW':'VLongSlow','EDGE_FAST_LOW':'EdgeFast','LITE_FAST':'LiteFast',
+                                'LITE_SLOW':'LiteSlow','NARROW_FAST':'NarrowFast','NARROW_SLOW':'NarrowSlow',
+                                'TINY_FAST':'TinyFast','TINY_SLOW':'TinySlow'
                             }
                             col = preset_colors.get(msg_preset, '#64748b')
                             label = short_names.get(msg_preset, msg_preset)
