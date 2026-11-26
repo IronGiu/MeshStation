@@ -104,6 +104,10 @@ class rx_lora_base_engine(gr.top_block):
         dc_iq_mode = 0
         # Pre-detect from args (may be "unknown" if args is empty = auto mode)
         detected_dev = _detect_device_from_args(device_args)
+
+        # Apply bias tee to args
+        device_args = _apply_bias_tee_args(device_args, bias_tee, detected_dev)
+
         self.sync_word = sync_word
         self.soft_decoding = soft_decoding = True
         sf = int(sf)
@@ -224,8 +228,7 @@ class rx_lora_base_engine(gr.top_block):
             samp_rate = max(samp_rate, 2_000_000)
             dc_shift = 500_000
 
-        # Apply bias tee to args
-        device_args = _apply_bias_tee_args(device_args, bias_tee, detected_dev)
+      
 
         print(f"Device args: {device_args}", flush=True)
         print(f"Detected SDR: {detected_dev}", flush=True)
